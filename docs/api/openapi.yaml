@@ -1,0 +1,302 @@
+openapi: 3.1.0
+info:
+  title: Roda da Vida API (Futura)
+  description: |
+    Contrato de API REST planejado para a fase pós-MVP do sistema Roda da Vida.
+    
+    **Status atual**: O MVP opera 100% client-side (sem backend). Este documento
+    define o contrato esperado para quando um backend for implementado.
+    
+    A API seguirá princípios RESTful, com autenticação JWT e versionamento via path (`/v1/`).
+  version: 0.1.0-draft
+  contact:
+    name: Equipe Roda da Vida
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.rodadavida.app/v1
+    description: Produção (futuro)
+  - url: http://localhost:3001/v1
+    description: Desenvolvimento local (futuro)
+
+tags:
+  - name: sessions
+    description: Sessões de questionário
+  - name: categories
+    description: Categorias da Roda da Vida
+  - name: results
+    description: Resultados e médias calculadas
+  - name: auth
+    description: Autenticação de usuários (fase futura)
+
+paths:
+  # ─── CATEGORIAS ───────────────────────────────────────────────────────────────
+  /categories:
+    get:
+      tags: [categories]
+      summary: Lista todas as categorias da Roda da Vida
+      description: Retorna as categorias com suas perguntas.
+      operationId: listCategories
+      responses:
+        '200':
+          description: Lista de categorias
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LifeCategory'
+              example:
+                - id: health
+                  label: Saúde e Corpo
+                  icon: "💪"
+                  color: "#10b981"
+                  description: "Exercícios, alimentação, sono e energia física"
+                  questions:
+                    - id: health-q1
+                      text: "Como você avalia sua rotina de exercícios?"
+                    - id: health-q2
+                      text: "Como está sua qualidade de sono?"
+
+  # ─── SESSÕES ──────────────────────────────────────────────────────────────────
+  /sessions:
+    post:
+      tags: [sessions]
+      summary: Cria uma nova sessão de questionário
+      operationId: createSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  description: ID do usuário (opcional no MVP — sessão anônima)
+      responses:
+        '201':
+          description: Sessão criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizSession'
+
+  /sessions/{sessionId}:
+    get:
+      tags: [sessions]
+      summary: Busca uma sessão pelo ID
+      operationId: getSession
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sessão encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizSession'
+        '404':
+          description: Sessão não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /sessions/{sessionId}/answers:
+    post:
+      tags: [sessions]
+      summary: Registra respostas de uma categoria
+      operationId: submitAnswers
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [categoryId, answers]
+              properties:
+                categoryId:
+                  type: string
+                answers:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AnswerInput'
+      responses:
+        '200':
+          description: Respostas registradas com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResult'
+
+  # ─── RESULTADOS ───────────────────────────────────────────────────────────────
+  /sessions/{sessionId}/results:
+    get:
+      tags: [results]
+      summary: Retorna os resultados completos de uma sessão
+      operationId: getResults
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resultados da sessão
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    $ref: '#/components/schemas/QuizSession'
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CategoryResult'
+                  wheelData:
+                    type: array
+                    description: Dados formatados para o gráfico Roda da Vida
+                    items:
+                      type: object
+                      properties:
+                        category:
+                          type: string
+                        score:
+                          type: number
+                          minimum: 0
+                          maximum: 10
+
+# ─── COMPONENTES ──────────────────────────────────────────────────────────────
+components:
+  schemas:
+    LifeCategory:
+      type: object
+      required: [id, label, icon, color, description, questions]
+      properties:
+        id:
+          type: string
+          example: health
+        label:
+          type: string
+          example: "Saúde e Corpo"
+        icon:
+          type: string
+          example: "💪"
+        color:
+          type: string
+          format: hex-color
+          example: "#10b981"
+        description:
+          type: string
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+
+    Question:
+      type: object
+      required: [id, text]
+      properties:
+        id:
+          type: string
+          example: health-q1
+        text:
+          type: string
+          example: "Como você avalia sua rotina de exercícios?"
+        hint:
+          type: string
+          nullable: true
+
+    AnswerInput:
+      type: object
+      required: [questionId, score]
+      properties:
+        questionId:
+          type: string
+        score:
+          type: integer
+          minimum: 0
+          maximum: 10
+
+    Answer:
+      allOf:
+        - $ref: '#/components/schemas/AnswerInput'
+        - type: object
+          properties:
+            answeredAt:
+              type: string
+              format: date-time
+
+    CategoryResult:
+      type: object
+      properties:
+        categoryId:
+          type: string
+        totalQuestions:
+          type: integer
+        answeredQuestions:
+          type: integer
+        average:
+          type: number
+          minimum: 0
+          maximum: 10
+          example: 7.3
+        completedAt:
+          type: string
+          format: date-time
+
+    QuizSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        answers:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              $ref: '#/components/schemas/Answer'
+        results:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/CategoryResult'
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: SESSION_NOT_FOUND
+        message:
+          type: string
+          example: "Sessão não encontrada"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT obtido no endpoint de autenticação (fase futura)

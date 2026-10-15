@@ -1,0 +1,48 @@
+# Dependências
+node_modules/
+.pnp
+.pnp.js
+
+# Build e saída
+dist/
+build/
+out/
+.next/
+
+# Ambiente e segredos
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Editores e SO
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# Temporários e caches de testes
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# Ferramentas locais de IA e agentes
+.agents/
+.aiox-reference/
+
